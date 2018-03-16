@@ -387,6 +387,12 @@ export KNOT_SERVER="dns.example.com"
 export KNOT_KEY=`grep \# /etc/knot/acme.key | cut -d' ' -f2`
 ```
 
+If your target DNS zone is not the root zone (example.com in this example), you can specify a list of zones like this:
+
+```
+export KNOT_ZONES="acme.example.com acme.example.net"
+```
+
 Ok, let's issue a cert now:
 ```
 acme.sh --issue --dns dns_knot -d example.com -d www.example.com

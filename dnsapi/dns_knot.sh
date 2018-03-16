@@ -8,16 +8,17 @@ dns_knot_add() {
   txtvalue=$2
   _checkKey || return 1
   [ -n "${KNOT_SERVER}" ] || KNOT_SERVER="localhost"
-  # save the dns server and key to the account.conf file.
+  # save the dns server, key and zones to the account.conf file.
   _saveaccountconf KNOT_SERVER "${KNOT_SERVER}"
   _saveaccountconf KNOT_KEY "${KNOT_KEY}"
+  _saveaccountconf KNOT_ZONES "${KNOT_ZONES}"
 
-  if ! _get_root "$fulldomain"; then
+  if ! _get_zone "$fulldomain" "${KNOT_ZONES}"; then
     _err "Domain does not exist."
     return 1
   fi
 
-  _info "Adding ${fulldomain}. 60 TXT \"${txtvalue}\""
+  _info "Adding ${fulldomain}. 60 TXT \"${txtvalue}\" to zone ${_domain}"
 
   knsupdate -y "${KNOT_KEY}" <<EOF
 server ${KNOT_SERVER}
@@ -42,12 +43,12 @@ dns_knot_rm() {
   _checkKey || return 1
   [ -n "${KNOT_SERVER}" ] || KNOT_SERVER="localhost"
 
-  if ! _get_root "$fulldomain"; then
+  if ! _get_zone "$fulldomain" "${KNOT_ZONES}"; then
     _err "Domain does not exist."
     return 1
   fi
 
-  _info "Removing ${fulldomain}. TXT"
+  _info "Removing ${fulldomain}. TXT from zone ${_domain}"
 
   knsupdate -y "${KNOT_KEY}" <<EOF
 server ${KNOT_SERVER}
@@ -67,24 +68,28 @@ EOF
 }
 
 ####################  Private functions below ##################################
-# _acme-challenge.www.domain.com
+# _acme-challenge.www.domain.com "acme.domain.com acme.example.com"
 # returns
 # _domain=domain.com
-_get_root() {
+_get_zone() {
   domain=$1
-  i="$(echo "$fulldomain" | tr '.' ' ' | wc -w)"
-  i=$(_math "$i" - 1)
+  zones=$2
+  count="$(echo "$domain" | tr '.' ' ' | wc -w)"
+  i=2
 
-  while true; do
+  while [ $i -lt $count ]; do
     h=$(printf "%s" "$domain" | cut -d . -f "$i"-100)
     if [ -z "$h" ]; then
       return 1
     fi
+    if _contains " $zones " " $h "; then
     _domain="$h"
     return 0
+    fi
+    i=$(_math "$i" + 1)
   done
-  _debug "$domain not found"
-  return 1
+  _domain="$h"
+  return 0
 }
 
 _checkKey() {
